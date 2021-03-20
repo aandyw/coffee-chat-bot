@@ -1,7 +1,6 @@
 import discord
 from discord.ext import commands
 import cogs.category_emojis as emojis
-import bot
 
 CHANNEL_NAME = 'coffee-time'
 
