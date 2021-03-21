@@ -1,8 +1,15 @@
 import discord
+import datetime
 from discord.ext import commands
-import cogs.category_emojis as emojis
+
+import asyncio
+import emoji
+import functools
+import operator
 
 CHANNEL_NAME = 'coffee-time'
+category_emoji = {}
+inv_category_emoji = {v: k for k, v in category_emoji.items()}
 
 
 class Admin(commands.Cog):
@@ -15,33 +22,159 @@ class Admin(commands.Cog):
     async def categories(self, ctx, *args):
         """Simple command that begins coffee time event"""
 
+        author = ctx.author
         guild = ctx.guild
+        # checks if server has the channel
         self.channel = discord.utils.get(
             guild.text_channels, name=CHANNEL_NAME)
 
+        # if the channel does not exist then create it
         if self.channel is None:
             self.channel = await guild.create_text_channel(CHANNEL_NAME)
 
-        response = "React with a category to be assigned categories as roles:\n"
+        # await ctx.send("Say hello!")
 
-        if len(args) > 0:
-            for arg in args:
-                response += emojis.category_emojis[arg] + ": " + arg + "\n"
-        else:
-            response += "No categories entered"
+        # def check(m):
+        #     return m.content == "hello" and m.channel == channel
 
-        await ctx.channel.send(response)
+        # msg = await bot.wait_for("message", check=check)
+        # await ctx.send(f"Hello {msg.author}!")
+
+        ### EMBEDDED MESSAGES ###
+
+        # title
+        embed_title = discord.Embed(
+            title="Title", description="Enter the title for your coffee time event\nMax 200 characters", color=0x00ff00)
+
+        # description
+        embed_desc = discord.Embed(
+            title="Description", description="Enter the description for your coffee time event\nMax 1000 characters", color=0x00ff00)
+
+        # event start time
+        embed_start = discord.Embed(
+            title="Start time", description="Enter a starting time", color=0x00ff00)
+
+        embed_cats = discord.Embed(
+            title="Categories", description="Enter the categories that you wish to have", color=0x00ff00)
+
+        embed_emotes = discord.Embed(
+            title="Emotes", description="Enter the emotes to be associated with the above categories", color=0x00ff00)
+
+        ### MESSAGE VERFICATIONS ###
+        def check_title(msg):
+            return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 200
+
+        def check_desc(msg):
+            return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 1000
+
+        def check_time(msg):
+            return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 1000
+
+        def check_cats(msg):
+            return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 1000
+
+        await ctx.channel.send(embed=embed_title)
+
+        try:
+            # 30 seconds to reply
+            title = await self.bot.wait_for("message", check=check_title, timeout=30)
+
+            if (len(title.content) > 200):  # if over message limit
+                await ctx.channel.send("Oops, the title you entered is too long.")
+
+            await ctx.channel.send(embed=embed_desc)
+            desc = await self.bot.wait_for("message", check=check_desc, timeout=30)
+
+            if (len(desc.content) > 1000):  # if over message limit
+                await ctx.channel.send("Oops, the description you entered is too long.")
+
+            # await ctx.channel.send(embed=embed_start)
+            # event_time = await self.bot.wait_for("message", check=check_cats, timeout=30)
+            # year = event_time[0, 4]
+            # month = event_time[4, 6]
+            # day = event_time[6, 8]
+            # event_time = datetime.datetime()
+
+            await ctx.channel.send(embed=embed_cats)
+            cats = await self.bot.wait_for("message", check=check_cats, timeout=30)
+
+            await ctx.channel.send(embed=embed_emotes)
+            emotes = await self.bot.wait_for("message", check=check_cats, timeout=30)
+
+            # check categories and emotes ....
+
+            cats_msg_content = await asyncio.gather(
+                self.format_cats_emotes(cats.content, emotes.content))
+            response = desc.content + "\nReact to the categories you are interested in!\n"
+            embed_msg = discord.Embed(
+                title=title.content, description=response, color=0x00ff00)
+            embed_msg.add_field(name="Time", value="test", inline=False)
+            embed_msg.add_field(name="Categories",
+                                value=cats_msg_content[0], inline=False)
+
+            await self.channel.send(embed=embed_msg)
+
+            # if len(args) > 0:
+            #     # categories given as arguments
+            #     for category in args:
+            #         if category_emoji[category] is not None:
+            #             #response += category_emoji[arg] + ": " + arg + "\n"
+            #             embed_msg.add_field(
+            #                 name=category, value=category_emoji[category], inline=True)
+            #         else:
+            #             embed_msg.add_field(
+            #                 name=category, value="\u25FB", inline=True)
+            # else:
+            #     response += "No categories entered"
+
+        except asyncio.TimeoutError:
+            await ctx.send("Sorry, you didn't reply in time!")
 
     @categories.error
     async def categories_error(self, error, ctx):
         if isinstance(error, commands.CheckFailure):
             await ctx.channel.send("You do not have permission to have ~coffee~")
 
-    # @categories.Cog.listener()
-    # async def on_reaction_add(self, reaction, user):
-    #     role = discord.utils.get(
-    #         user.server.roles, name=emojis.inv_category_emojis[reaction.emoji])
-    #     await bot.client.add_roles(user, role)
+    async def format_cats_emotes(self, categories, emotes):
+        categories_lst = categories.split()
+        emotes_lst = emoji.get_emoji_regexp().split(emotes)
+        em_split_whitespace = [substr.split() for substr in emotes_lst]
+        em_split = functools.reduce(operator.concat, em_split_whitespace)
+        msg_content = ""
+
+        for cat, emote in zip(categories_lst, em_split):
+            msg_content += "[{emote}] {cat}\n".format(emote=emote, cat=cat)
+
+        print(msg_content)
+        return msg_content
+
+    # @commands.command(name='emoji', aliases=['e'])
+    # @commands.guild_only()
+    # @commands.has_permissions(administrator=True)
+    # async def emoji(self, ctx, *args):
+    #     name = args[0]
+    #     emoji = args[1]
+    #     category_emoji[name] = emoji
+
+    #     author = ctx.author
+    #     guild = ctx.guild
+    #     # checks if server has the channel
+    #     self.channel = discord.utils.get(
+    #         guild.text_channels, name=CHANNEL_NAME)
+
+    #     # if the channel does not exist then create it
+    #     if self.channel is None:
+    #         self.channel = await guild.create_text_channel(CHANNEL_NAME)
+
+    #     await self.channel.send("Emoji for " + name + " is set as " + emoji)
+
+    @commands.Cog.listener()
+    async def on_reaction_add(self, reaction, user):
+        inv_category_emoji = {v: k for k, v in category_emoji.items()}
+
+        role = discord.utils.get(
+            user.server.roles, name=inv_category_emoji[reaction.emoji])
+        await bot.client.add_roles(user, role)
 
     # async def on_match(self, user1, user2):
     # guide = ctx.message.guide
