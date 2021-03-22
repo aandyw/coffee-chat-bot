@@ -1,1 +1,1 @@
-# coffee-chat-bot
+# Coffee Bot
