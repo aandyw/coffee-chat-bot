@@ -82,14 +82,18 @@ class Admin(commands.Cog):
             # 30 seconds to reply
             title = await self.bot.wait_for("message", check=check_title, timeout=30)
 
-            if (len(title.content) > 200):  # if over message limit
-                await ctx.channel.send("Oops, the title you entered is too long.")
+            while len(title.content) > 200:
+                await ctx.channel.send("Oops, the title you entered is too long. Re-enter a new title:")
+                title = await self.bot.wait_for("message", check=check_desc, timeout=30)
+            await ctx.channel.send("Title is set to: " + title.content)
 
             await ctx.channel.send(embed=embed_desc)
             desc = await self.bot.wait_for("message", check=check_desc, timeout=30)
 
-            if (len(desc.content) > 1000):  # if over message limit
-                await ctx.channel.send("Oops, the description you entered is too long.")
+            while len(desc.content) > 1000:  # if over message limit
+                await ctx.channel.send("Oops, the description you entered is too long. Re-enter a new description:")
+                desc = await self.bot.wait_for("message", check=check_desc, timeout=30)
+            await ctx.channel.send("Description is set to: " + desc.content)
 
             # await ctx.channel.send(embed=embed_start)
             # event_time = await self.bot.wait_for("message", check=check_cats, timeout=30)
@@ -101,10 +105,17 @@ class Admin(commands.Cog):
             await ctx.channel.send(embed=embed_cats)
             cats = await self.bot.wait_for("message", check=check_cats, timeout=30)
 
+            # send message validation
+            await ctx.channel.send("Categories are set to the following: " + cats.content)
+
             await ctx.channel.send(embed=embed_emotes)
             emotes = await self.bot.wait_for("message", check=check_cats, timeout=30)
 
-            # check categories and emotes ....
+            # check categories and emotes
+            if (len(cats.content) > len(emotes.content)):  # if over message limit
+                await ctx.channel.send("Oops, there are more categories entered than emojis")
+            elif (len(cats.content) < len(emotes.content)):
+                await ctx.channel.send("Oops, there are more emojis entered than categories")
 
             # creates a list of emotes
             self.emotes_lst = await asyncio.gather(self.split_emotes(emotes.content))
