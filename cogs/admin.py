@@ -82,6 +82,7 @@ class Admin(commands.Cog):
             # 30 seconds to reply
             title = await self.bot.wait_for("message", check=check_title, timeout=30)
 
+            # retrieve title until title satisfies length requirement
             while len(title.content) > 200:
                 await ctx.channel.send("Oops, the title you entered is too long. Re-enter a new title:")
                 title = await self.bot.wait_for("message", check=check_desc, timeout=30)
@@ -90,6 +91,7 @@ class Admin(commands.Cog):
             await ctx.channel.send(embed=embed_desc)
             desc = await self.bot.wait_for("message", check=check_desc, timeout=30)
 
+            # retrieve description until description satisfies length requirement
             while len(desc.content) > 1000:  # if over message limit
                 await ctx.channel.send("Oops, the description you entered is too long. Re-enter a new description:")
                 desc = await self.bot.wait_for("message", check=check_desc, timeout=30)
