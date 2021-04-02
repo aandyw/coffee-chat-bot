@@ -12,7 +12,6 @@ initial_extensions = ['cogs.admin']
 
 intents = discord.Intents.all()
 
-
 bot = commands.Bot(command_prefix='!',
                    description='Coffee bot for coffee chats',
                    intents=intents)
