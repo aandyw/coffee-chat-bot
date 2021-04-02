@@ -70,9 +70,9 @@ class Admin(commands.Cog):
 
         ### MESSAGE VERFICATIONS ###
         def msg_check(msg):
-            return msg.author == ctx.author and msg.channel == ctx.channel
+            return msg.author == ctx.author
 
-        await ctx.channel.send(embed=embed_title)  # send title message
+        await ctx.author.send(embed=embed_title)  # send title message
 
         try:
             while True:
@@ -80,25 +80,25 @@ class Admin(commands.Cog):
                 title = await self.bot.wait_for("message", check=msg_check, timeout=30)
 
                 if len(title.content) > TITLE_LIMIT:  # exceeds message limit
-                    await ctx.channel.send("Oops, looks like you exceeded the message limit \
+                    await ctx.author.send("Oops, looks like you exceeded the message limit \
                         \nYour description can only be {chars} characters long".format(chars=TITLE_LIMIT))
                 else:
                     break
 
             # send description message
-            await ctx.channel.send(embed=embed_desc)
+            await ctx.author.send(embed=embed_desc)
 
             while True:
                 desc = await self.bot.wait_for("message", check=msg_check, timeout=30)
 
                 if len(desc.content) > DESC_LIMIT:  # exceeds message limit
-                    await ctx.channel.send("Oops, looks like you exceeded the message limit \
+                    await ctx.author.send("Oops, looks like you exceeded the message limit \
                         \nYour description can only be {chars} characters long".format(chars=DESC_LIMIT))
                 else:
                     break
 
             # send category message
-            await ctx.channel.send(embed=embed_cats)
+            await ctx.author.send(embed=embed_cats)
 
             while True:
                 cats = await self.bot.wait_for("message", check=msg_check, timeout=30)
@@ -107,19 +107,19 @@ class Admin(commands.Cog):
                 if num_categories <= CATEGORY_LIMIT:
 
                     # send emotes message
-                    await ctx.channel.send(embed=embed_emotes)
+                    await ctx.author.send(embed=embed_emotes)
 
                     while True:
                         emotes = await self.bot.wait_for("message", check=msg_check, timeout=30)
 
                         if len((emotes.content).split()) != num_categories or len((emotes.content).split()) > CATEGORY_LIMIT:
-                            await ctx.channel.send("Wow, looks like you messed up \
+                            await ctx.author.send("Wow, looks like you messed up \
                             \nYou don't have the same number of emotes as your categories silly")
                         else:
                             break
                     break
                 else:
-                    await ctx.channel.send("Oops, looks like you exceeded number of categories\
+                    await ctx.author.send("Oops, looks like you exceeded number of categories\
                         \nYou can only have {num} categories".format(num=CATEGORY_LIMIT))
 
             print("Creating event message...")
