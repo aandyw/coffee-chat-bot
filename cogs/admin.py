@@ -7,13 +7,14 @@ import emoji
 import functools
 import operator
 from datetime import datetime
+import numpy as np
 
 CHANNEL_NAME = 'coffee-time'
 COLOR = 0x00ff00
 
 # custom message that is sent to matched users
 USER_TITLE = "Congrats you've been matched!"
-USER_DESC = "You have been matched with `{user}` because you guys share some common interests :slight_smile: Feel free to reach out to your match and arrange your coffee chat via any platform that works the best for you.\nHave a good coffee chat! :coffee: :coffee: :coffee:"
+USER_DESC = "You have been matched with `{user}` because you both share some common interests :slight_smile: Feel free to reach out to your match and arrange your coffee chat via any platform that works the best for you.\nHave a good coffee chat! :coffee: :coffee: :coffee:"
 
 
 class Admin(commands.Cog):
@@ -23,6 +24,9 @@ class Admin(commands.Cog):
         self.event_msg = None  # event object message
         self.emotes_lst = None  # list of emotes
         self.member_roles = {}  # keep track of which user has role
+        self.all_user_id = []   # store all user IDs who react to at least 1 category
+        # store all potential matches for each user in format: [ [user, (user match, number of interests in common)] ]
+        self.all_matches = {}
 
     @commands.command(name='coffee_time', aliases=['coffeetime', 'coffee'])
     @commands.guild_only()
@@ -162,37 +166,95 @@ class Admin(commands.Cog):
     async def start(self, ctx, *args):
         ### PERFORM MATCHING ###
 
-        users = set()
-        for role in self.emotes_lst[0]:
-            # print(role)
-            lst = self.member_roles[role]
-            # print(len(lst))
-            while lst:
-                if len(lst) < 2:
-                    break
-                # user 1
-                idx = random.randrange(0, len(lst))
-                p1_id = lst.pop(idx)
-                # user 2
-                idx = random.randrange(0, len(lst))
-                p2_id = lst.pop(idx)
-
-                # if duplicates
-                if p1_id in users or p2_id in users:
+        # store all potential matches and scores (number of common categories) for each user
+        for user1 in all_user_id:
+            all_matches[user1] = []
+            for user2 in all_user_id:
+                if user2 == user1:
                     continue
                 else:
-                    users.add(p1_id)
-                    users.add(p2_id)
-                    user1 = self.bot.get_user(p1_id)
-                    user2 = self.bot.get_user(p2_id)
+                    common_cats = [e for e in user1.roles if e in user2.roles]
+                    all_matches[user1].append((user2, len(common_cats)))
 
-                    user1_msg = discord.Embed(
-                        title=USER_TITLE, description=USER_DESC.format(user=self.bot.get_user(p2_id)), color=COLOR)
-                    user2_msg = discord.Embed(
-                        title=USER_TITLE, description=USER_DESC.format(user=self.bot.get_user(p1_id)), color=COLOR)
+        # iterate through all users in keyset of all_matches
+        user_index = 0
 
-                    await user1.send(embed=user1_msg)
-                    await user2.send(embed=user2_msg)
+        # perform matching until no users are left
+        while len(all_matches) > 0:
+            # store remaining unmatched user (if total number of users is uneven)
+            if (len(all_matches) == 1):
+                unmatched = all_matches.keys()[0]
+                break
+
+            # track potential match with current highest score
+            keys = list(all_matches.keys())
+            user = keys[user_index]
+            cur_matched_user = ""
+            cur_max_score = 0
+
+            # find the potential match with highest score
+            for matched_tuple in all_matches[user]:
+                if matched_tuple[1] >= cur_max_score:
+                    cur_matched_user = matched_tuple[0]
+                    cur_max_score = matched_tuple[1]
+
+            # check if the user can be matched with the potential match
+            if cur_matched_user in all_matches:
+                # send matching messages
+                user1 = self.bot.get_user(user)
+                user2 = self.bot.get_user(cur_matched_user)
+
+                user1_msg = discord.Embed(title=USER_TITLE, description=USER_DESC.format(user=self.bot.get_user(cur_matched_user)), color=COLOR)
+                user2_msg = discord.Embed(title=USER_TITLE, description=USER_DESC.format(user=self.bot.get_user(user)), color=COLOR)
+
+                await user1.send(embed=user1_msg)
+                await user2.send(embed=user2_msg)
+
+                # remove user's match from potential matches
+                all_matches.pop(cur_matched_user)
+                user_index += 1
+            else:
+                # remove the match with the highest score to consider next highest score
+                all_matches[user].remove((cur_matched_user, cur_max_score))
+                continue
+
+            # remove current user from potential matches
+            all_matches.pop(user)
+
+
+
+
+        # users = set()
+        # for role in self.emotes_lst[0]:
+        #     # print(role)
+        #     lst = self.member_roles[role]
+        #     # print(len(lst))
+        #     while lst:
+        #         if len(lst) < 2:
+        #             break
+        #         # user 1
+        #         idx = random.randrange(0, len(lst))
+        #         p1_id = lst.pop(idx)
+        #         # user 2
+        #         idx = random.randrange(0, len(lst))
+        #         p2_id = lst.pop(idx)
+
+        #         # if duplicates
+        #         if p1_id in users or p2_id in users:
+        #             continue
+        #         else:
+        #             users.add(p1_id)
+        #             users.add(p2_id)
+        #             user1 = self.bot.get_user(p1_id)
+        #             user2 = self.bot.get_user(p2_id)
+
+        #             user1_msg = discord.Embed(
+        #                 title=USER_TITLE, description=USER_DESC.format(user=self.bot.get_user(p2_id)), color=COLOR)
+        #             user2_msg = discord.Embed(
+        #                 title=USER_TITLE, description=USER_DESC.format(user=self.bot.get_user(p1_id)), color=COLOR)
+
+        #             await user1.send(embed=user1_msg)
+        #             await user2.send(embed=user2_msg)
 
         guild = ctx.guild
         await asyncio.gather(self.delete_roles(guild, self.emotes_lst[0]))
@@ -210,6 +272,10 @@ class Admin(commands.Cog):
                 user = payload.member
                 if role is not None and user is not None:
                     await user.add_roles(role)
+
+                    if user not in self.all_users:
+                        self.all_user_id.append(user.id)
+
                     self.member_roles[emote].append(payload.user_id)
                     print(self.member_roles)
                 else:
@@ -225,6 +291,10 @@ class Admin(commands.Cog):
                 user = await guild.fetch_member(payload.user_id)
                 if role is not None and user is not None:
                     await user.remove_roles(role)
+
+                    if len(user.roles) == 0:
+                        self.all_user_id.remove(user.id)
+
                     self.member_roles[emote].remove(payload.user_id)
                     print(self.member_roles)
                 else:
