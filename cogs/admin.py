@@ -17,6 +17,11 @@ USER_TITLE = "Congrats you've been matched!"
 USER_DESC = "You have been matched with `{user}` because you both share some common interests :slight_smile: Feel free to reach out to your match and arrange your coffee chat via any platform that works the best for you.\nHave a good coffee chat! :coffee: :coffee: :coffee:"
 
 
+TITLE_LIMIT = 200
+DESC_LIMIT = 1000
+CATEGORY_LIMIT = 5
+
+
 class Admin(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
@@ -57,34 +62,38 @@ class Admin(commands.Cog):
 
         # event start time
         embed_start = discord.Embed(
-            title="Start time", description="Enter a starting time", color=COLOR)
+            title="Start time", description="Enter a starting time for your event", color=COLOR)
 
         # event categories
         embed_cats = discord.Embed(
-            title="Categories", description="Enter the categories that you wish to have", color=COLOR)
+            title="Categories", description="Enter the categories that you wish to have\nMax 5 categories", color=COLOR)
 
         # category emotes
         embed_emotes = discord.Embed(
-            title="Emotes", description="Enter the emotes to be associated with the above categories", color=COLOR)
+            title="Emotes", description="Enter the emotes to be associated with the above categories\nMax 5 emotes", color=COLOR)
 
         ### MESSAGE VERFICATIONS ###
-        def check_title(msg):
-            return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 200
+        def msg_check(msg):
+            return msg.author == ctx.author
 
-        def check_desc(msg):
-            return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 1000
-
-        # def check_time(msg):
-        #     return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 1000
-
-        def check_cats(msg):
-            return msg.author == ctx.author and msg.channel == ctx.channel and len(msg.content) <= 1000
-
-        await ctx.channel.send(embed=embed_title)
+        await ctx.author.send(embed=embed_title)  # send title message
 
         try:
-            # 30 seconds to reply
-            title = await self.bot.wait_for("message", check=check_title, timeout=30)
+            while True:
+                # 30 seconds to reply
+                title = await self.bot.wait_for("message", check=msg_check, timeout=30)
+
+                if len(title.content) > TITLE_LIMIT:  # exceeds message limit
+                    await ctx.author.send("Oops, looks like you exceeded the message limit \
+                        \nYour description can only be {chars} characters long".format(chars=TITLE_LIMIT))
+                else:
+                    break
+
+            # send description message
+            await ctx.author.send(embed=embed_desc)
+
+            while True:
+                desc = await self.bot.wait_for("message", check=msg_check, timeout=30)
 
             # retrieve title until title satisfies length requirement
             while len(title.content) > 200:
@@ -100,29 +109,16 @@ class Admin(commands.Cog):
                 await ctx.channel.send("Oops, the description you entered is too long. Re-enter a new description:")
                 desc = await self.bot.wait_for("message", check=check_desc, timeout=30)
             await ctx.channel.send("Description is set to: " + desc.content)
+                if len(desc.content) > DESC_LIMIT:  # exceeds message limit
+                    await ctx.author.send("Oops, looks like you exceeded the message limit \
+                        \nYour description can only be {chars} characters long".format(chars=DESC_LIMIT))
+                else:
+                    break
 
-            # await ctx.channel.send(embed=embed_start)
-            # event_time = await self.bot.wait_for("message", check=check_cats, timeout=30)
-            # year = event_time[0, 4]
-            # month = event_time[4, 6]
-            # day = event_time[6, 8]
-            # event_time = datetime.datetime()
+            # send category message
+            await ctx.author.send(embed=embed_cats)
 
-            await ctx.channel.send(embed=embed_cats)
-            cats = await self.bot.wait_for("message", check=check_cats, timeout=30)
-
-            # send message validation
-            await ctx.channel.send("Categories are set to the following: " + cats.content)
-
-            await ctx.channel.send(embed=embed_emotes)
-            emotes = await self.bot.wait_for("message", check=check_cats, timeout=30)
-
-            # check categories and emotes
-            if (len(cats.content) > len(emotes.content)):  # if over message limit
-                await ctx.channel.send("Oops, there are more categories entered than emojis")
-            elif (len(cats.content) < len(emotes.content)):
-                await ctx.channel.send("Oops, there are more emojis entered than categories")
-
+            print("Creating event message...")
             # creates a list of emotes
             self.emotes_lst = await asyncio.gather(self.split_emotes(emotes.content))
 
